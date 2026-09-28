@@ -1,0 +1,32 @@
+name: Feature request
+description: 欲しい機能・改善案を送る
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        機能要望ありがとうございます。実装時期や実装そのものは保証できませんが、今後の候補として確認します。
+  - type: textarea
+    id: request
+    attributes:
+      label: 欲しい機能
+      description: どんな機能が欲しいですか？
+    validations:
+      required: true
+  - type: textarea
+    id: usecase
+    attributes:
+      label: 使いたい場面
+      description: その機能があると何が便利になりますか？
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: 現在の困りごと・代替方法
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補足

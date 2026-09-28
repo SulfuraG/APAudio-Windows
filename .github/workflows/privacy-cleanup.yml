@@ -1,0 +1,29 @@
+name: One-time public history privacy cleanup
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.event.head_commit.message == 'Run public history privacy cleanup'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current public tree
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace setup history with one noreply root commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan clean-main
+          git add -A
+          git commit -m "APAudio Windows public source"
+          git push --force origin clean-main:main

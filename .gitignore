@@ -1,0 +1,38 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Gradle / Kotlin caches and generated output
+.gradle/
+.kotlin/
+**/build/
+
+# Local Android SDK and machine-specific configuration
+local.properties
+
+# Android build and device artifacts
+captures/
+*.apk
+*.aab
+*.apks
+*.log
+
+# Signing credentials and local environment files
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Native build output (NDK is not used, but never commit generated output)
+.externalNativeBuild/
+.cxx/
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*~
