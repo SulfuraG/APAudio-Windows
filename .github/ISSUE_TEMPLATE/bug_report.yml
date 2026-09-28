@@ -1,0 +1,65 @@
+name: Bug report
+description: APAudio for Windowsの不具合を報告する
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        報告ありがとうございます。分かる範囲だけで大丈夫です。
+  - type: input
+    id: version
+    attributes:
+      label: APAudio version
+      placeholder: "例: 0.3.0"
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      placeholder: "例: Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: sender
+    attributes:
+      label: 送信元
+      options:
+        - iPhone / iPad
+        - Mac
+        - その他
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: 使用した配布形式
+      options:
+        - EXE installer
+        - Portable ZIP
+        - Source build
+        - 不明
+  - type: textarea
+    id: problem
+    attributes:
+      label: 起きたこと
+      description: できるだけ具体的に書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. APAudioを起動
+        2. AirPlayからAPAudio Windowsを選択
+        3. ...
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した動作
+  - type: textarea
+    id: logs
+    attributes:
+      label: ログ・補足
+      description: "%LOCALAPPDATA%\APAudio\logs\APAudio.log の関連部分など。個人情報や公開したくない情報は削除してください。"

@@ -1,0 +1,130 @@
+name: Publish Windows Release
+
+on:
+  workflow_run:
+    workflows: ["One-time public history privacy cleanup"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 9.4.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.4.1"
+
+      - name: Read application version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content "windows\build.gradle.kts" -Raw
+          if ($content -notmatch 'windowsApplicationVersion\s*=\s*"([^"]+)"') {
+            throw "Could not read windowsApplicationVersion"
+          }
+          $version = $Matches[1]
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Check whether release already exists
+        id: existing
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release view "$env:RELEASE_TAG" *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          } else {
+            "exists=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+          exit 0
+
+      - name: Download WiX Toolset 3.14.1
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          $wixRoot = "windows\build\tools"
+          $wixArchive = "$wixRoot\wix314-binaries.zip"
+          $wixHome = "$wixRoot\wix314"
+          New-Item -ItemType Directory -Force -Path $wixRoot | Out-Null
+          Invoke-WebRequest `
+            -Uri "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip" `
+            -OutFile $wixArchive
+          $actualHash = (Get-FileHash -Algorithm SHA256 $wixArchive).Hash
+          $expectedHash = "6AC824E1642D6F7277D0ED7EA09411A508F6116BA6FAE0AA5F2C7DAA2FF43D31"
+          if ($actualHash -ne $expectedHash) {
+            throw "Unexpected WiX archive SHA256: $actualHash"
+          }
+          Expand-Archive -Path $wixArchive -DestinationPath $wixHome -Force
+
+      - name: Test and package
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        run: |
+          gradle `
+            :windows:test `
+            :windows:jpackageInstaller `
+            -PwixHome="$PWD\windows\build\tools\wix314" `
+            --stacktrace
+
+      - name: Prepare release files
+        if: steps.existing.outputs.exists != 'true'
+        id: files
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $installer = "windows\build\jpackage\installer\APAudio-$version.exe"
+          if (-not (Test-Path $installer)) { throw "Installer not found: $installer" }
+
+          $portable = "windows\build\jpackage\APAudio-$version-windows-portable.zip"
+          Compress-Archive `
+            -Path "windows\build\jpackage\app-image\APAudio" `
+            -DestinationPath $portable `
+            -Force
+
+          $checksum = "windows\build\jpackage\SHA256SUMS.txt"
+          $items = @((Resolve-Path $installer).Path, (Resolve-Path $portable).Path)
+          $lines = foreach ($item in $items) {
+            $hash = (Get-FileHash -Algorithm SHA256 $item).Hash.ToLower()
+            "$hash  $([System.IO.Path]::GetFileName($item))"
+          }
+          $lines | Set-Content -Encoding ascii $checksum
+
+          "installer=$((Resolve-Path $installer).Path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "portable=$((Resolve-Path $portable).Path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "checksum=$((Resolve-Path $checksum).Path)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create GitHub Release
+        if: steps.existing.outputs.exists != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          INSTALLER: ${{ steps.files.outputs.installer }}
+          PORTABLE: ${{ steps.files.outputs.portable }}
+          CHECKSUM: ${{ steps.files.outputs.checksum }}
+        run: |
+          gh release create "$env:RELEASE_TAG" `
+            "$env:INSTALLER" `
+            "$env:PORTABLE" `
+            "$env:CHECKSUM" `
+            --target "main" `
+            --title "APAudio $env:RELEASE_TAG" `
+            --notes "APAudio for Windows is completely free. Optional sponsorship supports future development and testing."
